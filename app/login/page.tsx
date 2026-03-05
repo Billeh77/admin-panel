@@ -1,8 +1,14 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
-export default function LoginPage() {
+function LoginContent() {
+  const searchParams = useSearchParams();
+  const error = searchParams.get('error');
+  const message = searchParams.get('message');
+
   const handleGoogleLogin = async () => {
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
@@ -26,6 +32,17 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold text-white mb-2">Admin Panel</h1>
           <p className="text-slate-400 text-sm">Superadmin access only</p>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+            <p className="text-red-400 text-sm font-medium">Authentication Failed</p>
+            <p className="text-red-400/70 text-xs mt-1">
+              Error: {error}
+              {message && <><br />{message}</>}
+            </p>
+          </div>
+        )}
 
         {/* Login Card */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
@@ -60,5 +77,17 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </main>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
