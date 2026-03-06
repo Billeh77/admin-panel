@@ -13,28 +13,34 @@ export default async function CaptionsPage() {
     redirect('/login');
   }
 
-  // Fetch all captions
-  const { data: captions, error } = await supabase
-    .from('captions')
-    .select('*')
-    .order('created_datetime_utc', { ascending: false });
+  // STEP 1: Get all votes using pagination (Supabase has 1000 row limit per query)
+  let allVotes: { caption_id: string; vote_value: number }[] = [];
+  let page = 0;
+  const PAGE_SIZE = 1000;
+  let hasMore = true;
 
-  // Fetch images for preview
-  const imageIds = [...new Set(captions?.map(c => c.image_id).filter(Boolean) || [])];
-  const { data: images } = await supabase
-    .from('images')
-    .select('id, url, image_description')
-    .in('id', imageIds);
+  while (hasMore) {
+    const { data: pageVotes } = await supabase
+      .from('caption_votes')
+      .select('caption_id, vote_value')
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+      .order('id', { ascending: true });
 
-  const imageMap = new Map(images?.map(img => [img.id, img]) || []);
+    if (pageVotes && pageVotes.length > 0) {
+      allVotes.push(...pageVotes);
+      page++;
+      hasMore = pageVotes.length === PAGE_SIZE;
+    } else {
+      hasMore = false;
+    }
+    
+    // Safety limit: max 20 pages (20,000 votes)
+    if (page >= 20) hasMore = false;
+  }
 
-  // Get vote counts per caption
-  const { data: votes } = await supabase
-    .from('caption_votes')
-    .select('caption_id, vote_value');
-
+  // Aggregate votes by caption
   const voteMap = new Map<string, { up: number; down: number }>();
-  votes?.forEach(v => {
+  allVotes?.forEach(v => {
     if (v.caption_id) {
       const current = voteMap.get(v.caption_id) || { up: 0, down: 0 };
       if (v.vote_value === 1) current.up++;
@@ -42,6 +48,51 @@ export default async function CaptionsPage() {
       voteMap.set(v.caption_id, current);
     }
   });
+
+  // STEP 2: Get caption IDs that have votes
+  const votedCaptionIds = [...voteMap.keys()];
+
+  // STEP 3: Fetch those specific captions (in batches)
+  const BATCH_SIZE = 50;
+  let allCaptions: any[] = [];
+  
+  for (let i = 0; i < votedCaptionIds.length; i += BATCH_SIZE) {
+    const batch = votedCaptionIds.slice(i, i + BATCH_SIZE);
+    const { data: batchCaptions } = await supabase
+      .from('captions')
+      .select('*')
+      .in('id', batch);
+    
+    if (batchCaptions) {
+      allCaptions.push(...batchCaptions);
+    }
+  }
+
+  // Also fetch some recent captions (even if no votes) for completeness
+  const { data: recentCaptions, error, count } = await supabase
+    .from('captions')
+    .select('*', { count: 'exact' })
+    .order('created_datetime_utc', { ascending: false })
+    .limit(100);
+
+  // Merge - add recent captions that aren't already in allCaptions
+  const existingIds = new Set(allCaptions.map(c => c.id));
+  recentCaptions?.forEach(c => {
+    if (!existingIds.has(c.id)) {
+      allCaptions.push(c);
+    }
+  });
+
+  const captions = allCaptions;
+
+  // Fetch images for preview
+  const imageIds = [...new Set(captions?.map(c => c.image_id).filter(Boolean) || [])];
+  const { data: images } = await supabase
+    .from('images')
+    .select('id, url, image_description')
+    .in('id', imageIds.slice(0, 200)); // Limit image fetches
+
+  const imageMap = new Map(images?.map(img => [img.id, img]) || []);
 
   // Add image and vote data to captions
   const captionsWithData = captions?.map(caption => ({
@@ -53,6 +104,15 @@ export default async function CaptionsPage() {
   // Stats
   const publicCount = captions?.filter(c => c.is_public).length || 0;
   const featuredCount = captions?.filter(c => c.is_featured).length || 0;
+  const totalVotesFetched = allVotes?.length || 0;
+  const captionsWithVotes = captionsWithData.filter(c => c.votes.up > 0 || c.votes.down > 0).length;
+
+  // Sort by total votes (most voted first) to show captions that actually have votes
+  const sortedCaptions = [...captionsWithData].sort((a, b) => {
+    const aTotal = a.votes.up + a.votes.down;
+    const bTotal = b.votes.up + b.votes.down;
+    return bTotal - aTotal; // Descending order
+  });
 
   return (
     <AdminLayout currentPage="captions" userEmail={user.email || ''}>
@@ -61,7 +121,9 @@ export default async function CaptionsPage() {
           <div>
             <h2 className="text-2xl font-bold text-white">Captions</h2>
             <p className="text-slate-400 text-sm mt-1">
-              {captions?.length || 0} total • {publicCount} public • {featuredCount} featured
+              {captions?.length || 0} captions loaded • {publicCount} public • {featuredCount} featured • 
+              <span className="text-purple-400 ml-1">{totalVotesFetched} votes</span> • 
+              <span className="text-green-400">{captionsWithVotes} with votes</span>
             </p>
           </div>
         </div>
@@ -86,7 +148,7 @@ export default async function CaptionsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {captionsWithData.map((caption) => (
+                {sortedCaptions.map((caption) => (
                   <tr key={caption.id} className="hover:bg-slate-800/50 transition-colors">
                     <td className="px-4 py-3">
                       {caption.image?.url ? (
@@ -166,7 +228,7 @@ export default async function CaptionsPage() {
           </div>
         </div>
 
-        {captionsWithData.length === 0 && (
+        {sortedCaptions.length === 0 && (
           <div className="text-center py-12">
             <p className="text-slate-500">No captions found</p>
           </div>
