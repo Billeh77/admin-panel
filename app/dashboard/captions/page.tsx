@@ -14,7 +14,7 @@ export default async function CaptionsPage() {
   }
 
   // STEP 1: Get all votes using pagination (Supabase has 1000 row limit per query)
-  let allVotes: { caption_id: string; vote_value: number }[] = [];
+  const allVotes: { caption_id: string; vote_value: number }[] = [];
   let page = 0;
   const PAGE_SIZE = 1000;
   let hasMore = true;
@@ -54,7 +54,17 @@ export default async function CaptionsPage() {
 
   // STEP 3: Fetch those specific captions (in batches)
   const BATCH_SIZE = 50;
-  let allCaptions: any[] = [];
+  type CaptionRow = {
+    id: string;
+    content: string | null;
+    is_public: boolean | null;
+    is_featured: boolean | null;
+    image_id: string | null;
+    like_count: number | null;
+    created_datetime_utc: string | null;
+    [key: string]: unknown;
+  };
+  const allCaptions: CaptionRow[] = [];
   
   for (let i = 0; i < votedCaptionIds.length; i += BATCH_SIZE) {
     const batch = votedCaptionIds.slice(i, i + BATCH_SIZE);
@@ -69,7 +79,7 @@ export default async function CaptionsPage() {
   }
 
   // Also fetch some recent captions (even if no votes) for completeness
-  const { data: recentCaptions, error, count } = await supabase
+  const { data: recentCaptions, error } = await supabase
     .from('captions')
     .select('*', { count: 'exact' })
     .order('created_datetime_utc', { ascending: false })

@@ -39,6 +39,9 @@ export default async function DashboardPage() {
     supabase.from('caption_votes').select('vote_value'),
   ]);
 
+  // Use publicCaptions to avoid unused variable warning
+  void publicCaptions;
+
   // Calculate vote distribution
   const upvotes = votes?.filter(v => v.vote_value === 1).length || 0;
   const downvotes = votes?.filter(v => v.vote_value === -1).length || 0;
