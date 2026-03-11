@@ -83,7 +83,7 @@ export function AdminLayout({ children, currentPage, userEmail }: Props) {
   return (
     <div className="min-h-screen bg-slate-950">
       {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-20">
+      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
@@ -100,8 +100,8 @@ export function AdminLayout({ children, currentPage, userEmail }: Props) {
         </div>
       </header>
 
-      {/* Navigation */}
-      <nav className="border-b border-slate-800 bg-slate-900/30 sticky top-[60px] z-10">
+      {/* Navigation - higher z-index than content */}
+      <nav className="border-b border-slate-800 bg-slate-900 sticky top-[60px] z-40">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center gap-1 overflow-x-auto py-1">
             {navGroups.map((group) => {
@@ -148,9 +148,12 @@ export function AdminLayout({ children, currentPage, userEmail }: Props) {
                     </svg>
                   </button>
                   
-                  {/* Dropdown */}
+                  {/* Dropdown - positioned absolutely with high z-index */}
                   {isOpen && (
-                    <div className="absolute top-full left-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-1 min-w-[160px] z-50">
+                    <div 
+                      className="absolute top-full left-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl py-1 min-w-[160px]"
+                      style={{ zIndex: 9999 }}
+                    >
                       {group.items.map((item) => (
                         <Link
                           key={item.id}
@@ -173,8 +176,8 @@ export function AdminLayout({ children, currentPage, userEmail }: Props) {
         </div>
       </nav>
 
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      {/* Content - lower z-index than navigation */}
+      <main className="max-w-7xl mx-auto px-4 py-6 relative z-0">
         {children}
       </main>
     </div>
