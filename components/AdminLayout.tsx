@@ -80,9 +80,6 @@ const navGroups: NavGroup[] = [
 export function AdminLayout({ children, currentPage, userEmail }: Props) {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
-  // Find which group the current page belongs to
-  const currentGroup = navGroups.find(g => g.items.some(i => i.id === currentPage));
-
   return (
     <div className="min-h-screen bg-slate-950">
       {/* Header */}
@@ -106,11 +103,30 @@ export function AdminLayout({ children, currentPage, userEmail }: Props) {
       {/* Navigation */}
       <nav className="border-b border-slate-800 bg-slate-900/30 sticky top-[60px] z-10">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+          <div className="flex items-center gap-1 overflow-x-auto py-1">
             {navGroups.map((group) => {
               const isActive = group.items.some(i => i.id === currentPage);
               const isOpen = openGroup === group.label;
+              const isSingleItem = group.items.length === 1;
               
+              // Single item - render as direct link
+              if (isSingleItem) {
+                return (
+                  <Link
+                    key={group.label}
+                    href={group.items[0].href}
+                    className={`px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap rounded-md ${
+                      isActive
+                        ? 'text-white bg-amber-600/20 border border-amber-500/50'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    {group.label}
+                  </Link>
+                );
+              }
+              
+              // Multiple items - render as dropdown
               return (
                 <div 
                   key={group.label} 
@@ -119,23 +135,22 @@ export function AdminLayout({ children, currentPage, userEmail }: Props) {
                   onMouseLeave={() => setOpenGroup(null)}
                 >
                   <button
-                    className={`px-3 py-2.5 text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1 ${
+                    onClick={() => setOpenGroup(isOpen ? null : group.label)}
+                    className={`px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap flex items-center gap-1 rounded-md ${
                       isActive
-                        ? 'text-white border-b-2 border-amber-500'
-                        : 'text-slate-400 hover:text-white'
+                        ? 'text-white bg-amber-600/20 border border-amber-500/50'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
                     }`}
                   >
                     {group.label}
-                    {group.items.length > 1 && (
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    )}
+                    <svg className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </button>
                   
                   {/* Dropdown */}
-                  {(isOpen || group.items.length === 1) && group.items.length > 1 && (
-                    <div className="absolute top-full left-0 mt-0 bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-1 min-w-[140px] z-50">
+                  {isOpen && (
+                    <div className="absolute top-full left-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-1 min-w-[160px] z-50">
                       {group.items.map((item) => (
                         <Link
                           key={item.id}
@@ -151,29 +166,10 @@ export function AdminLayout({ children, currentPage, userEmail }: Props) {
                       ))}
                     </div>
                   )}
-                  
-                  {/* Single item direct link */}
-                  {group.items.length === 1 && (
-                    <Link
-                      href={group.items[0].href}
-                      className="absolute inset-0"
-                    />
-                  )}
                 </div>
               );
             })}
           </div>
-          
-          {/* Breadcrumb showing current location */}
-          {currentGroup && currentGroup.items.length > 1 && (
-            <div className="text-xs text-slate-500 pb-2 flex items-center gap-1">
-              <span>{currentGroup.label}</span>
-              <span>→</span>
-              <span className="text-slate-300">
-                {currentGroup.items.find(i => i.id === currentPage)?.label}
-              </span>
-            </div>
-          )}
         </div>
       </nav>
 
